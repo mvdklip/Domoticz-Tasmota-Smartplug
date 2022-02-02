@@ -4,7 +4,7 @@
 #
 
 """
-<plugin key="TasmotaSmartplug" name="Tasmota Smartplug" author="mvdklip" version="0.1.0">
+<plugin key="TasmotaSmartplug" name="Tasmota Smartplug" author="mvdklip" version="0.2.0">
     <description>
         <h2>Tasmota Smartplug Plugin</h2><br/>
         <h3>Features</h3>
@@ -19,13 +19,13 @@
         <param field="Password" label="Password" width="200px" required="true" password="true"/>
         <param field="Mode3" label="Query interval" width="75px" required="true">
             <options>
-                <option label="5 sec" value="5"/>
-                <option label="15 sec" value="15" default="true"/>
-                <option label="30 sec" value="30"/>
-                <option label="1 min" value="60"/>
-                <option label="3 min" value="180"/>
-                <option label="5 min" value="300"/>
-                <option label="10 min" value="600"/>
+                <option label="5 sec" value="1"/>
+                <option label="15 sec" value="3" default="true"/>
+                <option label="30 sec" value="6"/>
+                <option label="1 min" value="12"/>
+                <option label="3 min" value="36"/>
+                <option label="5 min" value="60"/>
+                <option label="10 min" value="120"/>
             </options>
         </param>
         <param field="Mode6" label="Debug" width="75px">
@@ -49,7 +49,9 @@ class BasePlugin:
     headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
     httpConn = None
     numConnectErrors = 0
-    maxConnectErrors = 10
+    maxConnectErrors = 5
+    backoffState = False
+    backoffTime = 60
 
     def __init__(self):
         return
@@ -64,7 +66,6 @@ class BasePlugin:
         if len(Devices) < 1:
             Domoticz.Device(Name="Power Switch", Unit=1, TypeName='Switch', Image=9).Create()
         if len(Devices) < 2:
-            #Domoticz.Device(Name="Power Consumption", Unit=4, TypeName='kWh', Options={'EnergyMeterMode':'1'}).Create()
             Domoticz.Device(Name="Power Consumption", Unit=4, TypeName='kWh').Create()
 
         DumpConfigToLog()
@@ -77,7 +78,7 @@ class BasePlugin:
             Port=Parameters["Port"],
         )
 
-        Domoticz.Heartbeat(1)
+        Domoticz.Heartbeat(5)
 
     def onStop(self):
         Domoticz.Debug("onStop called")
@@ -93,13 +94,12 @@ class BasePlugin:
             self.numConnectErrors += 1
             Domoticz.Log("Failed to connect #%d to %s:%s with status %d, error %s" % (self.numConnectErrors, Parameters["Address"], Parameters["Port"], Status, Description))
             if (self.numConnectErrors >= self.maxConnectErrors):
-                Domoticz.Error("Tried %d times to connect to %s:%s. Not trying again..." % (self.numConnectErrors, Parameters["Address"], Parameters["Port"]))
+                Domoticz.Error("Tried %d times to connect to %s:%s. Backing off..." % (self.numConnectErrors, Parameters["Address"], Parameters["Port"]))
+                self.backoffState = True
+                self.lastPolled = 1
 
     def onMessage(self, Connection, Data):
         Domoticz.Debug("onMessage called")
-
-        # device can only process one http request per connection; disconnect for next request
-#        Connection.Disconnect()
 
         Status = int(Data["Status"])
         if (Status == 200):
@@ -142,15 +142,23 @@ class BasePlugin:
         Domoticz.Debug("onDisconnect called")
 
     def onHeartbeat(self):
-        Domoticz.Debug("onHeartbeat called %d" % self.lastPolled)
+        Domoticz.Debug("onHeartbeat called %d %d" % (self.lastPolled, self.backoffState))
 
-        if self.lastPolled == 0 and len(self.pendingRequests) == 0:
-            GetDeviceStatus(self)
+        if self.lastPolled == 0:
+            if self.backoffState:
+                self.pendingRequests.clear()
+                self.numConnectErrors = 0
+                self.backoffState = False
+            elif len(self.pendingRequests) == 0:
+                GetDeviceStatus(self)
 
         HandlePendingRequests(self, self.httpConn)
 
         self.lastPolled += 1
-        self.lastPolled %= int(Parameters["Mode3"])
+        if self.backoffState:
+            self.lastPolled %= self.backoffTime
+        else:
+            self.lastPolled %= int(Parameters["Mode3"])
 
 
 global _plugin
