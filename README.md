@@ -5,7 +5,7 @@ Tested with Python version 3.8, Domoticz version 2020.2
 
 ## Prerequisites
 
-Smartplug running Tasmota firmware. Tested with an Athom smartplug from AliExpress.
+Smartplug running Tasmota firmware. Tested with Athom TP29 and PG01 smartplugs from AliExpress.
 
 ## Installation
 

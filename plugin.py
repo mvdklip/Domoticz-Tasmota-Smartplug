@@ -4,7 +4,7 @@
 #
 
 """
-<plugin key="TasmotaSmartplug" name="Tasmota Smartplug" author="mvdklip" version="0.2.0">
+<plugin key="TasmotaSmartplug" name="Tasmota Smartplug" author="mvdklip" version="0.2.1">
     <description>
         <h2>Tasmota Smartplug Plugin</h2><br/>
         <h3>Features</h3>
@@ -64,7 +64,7 @@ class BasePlugin:
             Domoticz.Debugging(0)
 
         if len(Devices) < 1:
-            Domoticz.Device(Name="Power Switch", Unit=1, TypeName='Switch', Image=9).Create()
+            Domoticz.Device(Name="Power Switch", Unit=1, TypeName='Switch', Image=1).Create()
         if len(Devices) < 2:
             Domoticz.Device(Name="Power Consumption", Unit=4, TypeName='kWh').Create()
 
